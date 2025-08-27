@@ -18,37 +18,34 @@ func SimulateRequest(ctx context.Context) (int64, error) {
 		log.Printf("Время выполнения запроса: %v", time.Since(t))
 	}()
 
-	ch := make(chan atomic.Int64, 1)
+	ch := make(chan int64, 1)
 
 	go func() {
 		time.Sleep(time.Duration(rand.Int63n(5)) * time.Millisecond)
 		counter.Add(1)
-		ch <- counter
+		ch <- counter.Load()
 	}()
 
 	select {
 	case <-ctx.Done():
 		return 0, fmt.Errorf("timeout request: %w", ctx.Err())
 	case count := <-ch:
-		return count.Load(), nil
+		return count, nil
 	}
 }
 
 func main() {
 
-	for range 100 {
-		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-			defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
 
-			val, err := SimulateRequest(ctx)
-			if err != nil {
-				log.Printf("Failed request: %v", err)
-			}
-
-			log.Printf("Значение счетчика: %d", val)
-		}()
+	val, err := SimulateRequest(ctx)
+	if err != nil {
+		log.Printf("Failed request: %v", err)
 	}
+
+	log.Printf("Значение счетчика: %d", val)
+
 }
 
 //Требуется доработать метод SimulateRequest так, чтобы:
